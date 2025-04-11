@@ -33,16 +33,14 @@ EMG_THRESHOLD = 600
 
 
 class NewDevice(plux.SignalsDev):
-    def __init__(self, address, emg_threshold=600):
+    def __init__(self, address):
         super().__init__(address)
         self.duration = 0
         self.frequency = 0
-        self.emg_threshold = emg_threshold
-
 
     def onRawFrame(self, nSeq, data):
-        emg_value = data[0]  # EMG sur le canal 1
-        if emg_value > self.emg_threshold:
+        emg_value = data[0]  # assuming EMG is on channel 1 (index 0)
+        if emg_value > EMG_THRESHOLD:
             print(f"Muscle contraction detected at frame {nSeq}: value={emg_value}")
         return nSeq > self.duration * self.frequency
 
