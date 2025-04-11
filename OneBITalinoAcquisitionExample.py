@@ -1,7 +1,6 @@
 import platform
 import sys
 
-# OS detection setup
 osDic = {
     "Darwin": f"MacOS/Intel{''.join(platform.python_version().split('.')[:2])}",
     "Linux": "Linux64",
@@ -23,43 +22,47 @@ if platform.mac_ver()[0] != "":
             print(f"Python version required is ≥ 3.10. Installed is {platform.python_version()}")
             exit()
 
-# Add path to PLUX API
+
 sys.path.append(f"PLUX-API-Python3/{osDic[platform.system()]}")
 
 import plux
 
-# Threshold for muscle contraction (adjust this value as needed)
-EMG_THRESHOLD = 600
-
 
 class NewDevice(plux.SignalsDev):
     def __init__(self, address):
-        super().__init__(address)
+        plux.SignalsDev.__init__(address)
         self.duration = 0
         self.frequency = 0
 
-    def onRawFrame(self, nSeq, data):
-        emg_value = data[0]  # assuming EMG is on channel 1 (index 0)
-        if emg_value > EMG_THRESHOLD:
-            print(f"Muscle contraction detected at frame {nSeq}: value={emg_value}")
+    def onRawFrame(self, nSeq, data):  # onRawFrame takes three arguments
+        if nSeq % 2000 == 0:
+            print(nSeq, *data)
         return nSeq > self.duration * self.frequency
+
+
+# example routines
 
 
 def exampleAcquisition(
     address="BTH00:07:80:4D:2E:76",
     duration=20,
     frequency=1000,
-    active_ports=[1],
-):
+    active_ports=[1, 2, 3, 4, 5, 6],
+):  # time acquisition for each frequency
+    """
+    Example acquisition.
+    """
     device = NewDevice(address)
-    device.duration = int(duration)
-    device.frequency = int(frequency)
-
+    device.duration = int(duration)  # Duration of acquisition in seconds.
+    device.frequency = int(frequency)  # Samples per second.
+    
+    # Trigger the start of the data recording: https://www.downloads.plux.info/apis/PLUX-API-Python-Docs/classplux_1_1_signals_dev.html#a028eaf160a20a53b3302d1abd95ae9f1
     device.start(device.frequency, active_ports, 16)
-    device.loop()
+    device.loop()  # calls device.onRawFrame until it returns True
     device.stop()
     device.close()
 
 
 if __name__ == "__main__":
+    # Use arguments from the terminal (if any) as the first arguments and use the remaining default values.
     exampleAcquisition(*sys.argv[1:])
