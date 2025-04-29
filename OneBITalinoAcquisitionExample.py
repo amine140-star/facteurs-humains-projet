@@ -35,7 +35,7 @@ class NewDevice(plux.SignalsDev):
         self.frequency = 0
 
     def onRawFrame(self, nSeq, data):  # onRawFrame takes three arguments
-        if nSeq % 2000 == 0:
+        if nSeq % 100 == 0:
             print(nSeq, *data)
         return nSeq > self.duration * self.frequency
 
@@ -44,10 +44,11 @@ class NewDevice(plux.SignalsDev):
 
 
 def exampleAcquisition(
-    address="BTH00:07:80:4D:2E:76",
+    address="BTH98:D3:11:FE:03:67",
     duration=20,
-    frequency=1000,
-    active_ports=[1, 2, 3, 4, 5, 6],
+    frequency=100,
+    active_ports=[1,2],
+
 ):  # time acquisition for each frequency
     """
     Example acquisition.
@@ -66,3 +67,14 @@ def exampleAcquisition(
 if __name__ == "__main__":
     # Use arguments from the terminal (if any) as the first arguments and use the remaining default values.
     exampleAcquisition(*sys.argv[1:])
+
+
+
+
+
+
+
+
+
+
+
