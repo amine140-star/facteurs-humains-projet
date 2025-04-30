@@ -6,7 +6,7 @@ import threading
 import platform
 import sys
 
-# -------- BITALINO / EMG SETUP ----------
+# -------- BITALINO / EMG + PZT SETUP ----------
 osDic = {
     "Darwin": f"MacOS/Intel{''.join(platform.python_version().split('.')[:2])}",
     "Linux": "Linux64",
@@ -20,7 +20,8 @@ def detect_change(prev, curr, threshold=10):
 
 shared_state = {
     "gauche": False,
-    "droite": False
+    "droite": False,
+    "respiration": 512  # valeur par défaut
 }
 
 class NewDevice(plux.SignalsDev):
@@ -35,6 +36,7 @@ class NewDevice(plux.SignalsDev):
     def onRawFrame(self, nSeq, data):
         current_value = data[0] # hetha el port A1 ta3 bitalino 7atet fih emg 
         current_value2 = data[1] # hetha el port A2 ta3 bitalino 7atet fih pression ( emg le5or mawjoud ama 3ana sensors ta3 lmuscle ou l emg bidou le )
+        respiration_value = data[2]    # canal A3 lel respiration (PZT)
 
         changement_detecte = False
         changement_detecte2 = False
@@ -42,7 +44,7 @@ class NewDevice(plux.SignalsDev):
         if self.prev_value is not None and self.prev_value2 is not None:
             if detect_change(self.prev_value, current_value):
                 changement_detecte = True
-            if detect_change(self.prev_value2, current_value2):
+            if current_value2 > 600:  # seuil pression à ajuster
                 changement_detecte2 = True
 
         self.prev_value = current_value
@@ -50,15 +52,16 @@ class NewDevice(plux.SignalsDev):
 
         shared_state["gauche"] = changement_detecte
         shared_state["droite"] = changement_detecte2
+        shared_state["respiration"] = respiration_value
 
         return nSeq > self.duration * self.frequency
 
 def lancer_emg():
-    address = "98:D3:11:FE:03:67"  # Replace with your BITalino MAC address
+    address = "98:D3:11:FE:03:67"
     device = NewDevice(address)
     device.duration = 9999
     device.frequency = 10
-    device.start(device.frequency, [1, 2], 16)
+    device.start(device.frequency, [1, 2, 3], 16)
     device.loop()
     device.stop()
     device.close()
@@ -74,7 +77,6 @@ pygame.display.set_caption('Dogers')
 clock = pygame.time.Clock()
 FPS = 60
 
-BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 RED = (200, 0, 0)
 GREEN = (0, 200, 0)
@@ -180,16 +182,10 @@ def crash(dodged):
         clock.tick(FPS)
 
 def game_loop():
-    # hethi bech tlock l mouvment men lane l lane b zarba 
-    emg_lock = {
-        "gauche": False,
-        "droite": False
-    }
+    emg_lock = {"gauche": False, "droite": False}
 
-    
     running = True
     road_y = -369
-    road_speed = 3
     dodged = 0
     speed = 6
     end = False
@@ -207,8 +203,7 @@ def game_loop():
                 pygame.quit()
                 quit()
 
-# mouvment mta3 l emg lehne taya7na fil lanes bech ira pic fi signal mech mouvi direct lel e5er lane 
-        if shared_state["gauche"] and not emg_lock["gauche"]:
+ # mouvment mta3 l emg lehne taya7na fil lanes bech ira pic fi signal mech mouvi direct lel e5er lane         if shared_state["gauche"] and not emg_lock["gauche"]:
             for i in range(1, len(lanes)):
                 if car_x == lanes[i]:
                     car_x = lanes[i - 1]
@@ -226,29 +221,31 @@ def game_loop():
         if not shared_state["droite"]:
             emg_lock["droite"] = False
 
+        # Vitesse de respiration
+        respiration = shared_state.get("respiration", 512)
+        respiration_norm = min(1.0, max(0.0, (respiration - 400) / 300))  # ajustable
+        road_speed = 3 + respiration_norm * 4
 
-        # Display road
+        # Affichage route
         SS.blit(road_img, (0, road_y))
         road_y += road_speed
-        if road_y == 0:
+        if road_y >= 0:
             road_y = -369
 
-        # Show enemies
         count = 0
         while count < len(enemycars):
             for object in enemycars[count]:
+                object.speed = road_speed  # vitesse des ennemis aussi
                 object.show(car_x, car_y)
                 if object.crashed:
                     end = True
             if enemycars[count][0].halfway and len(enemycars) < 2:
-                generate_enemy(enemycars, speed)
+                generate_enemy(enemycars, road_speed)
             if enemycars[count][0].off_screen:
                 del enemycars[count]
-                generate_enemy(enemycars, speed)
+                generate_enemy(enemycars, road_speed)
                 count -= 1
                 dodged += 1
-                if dodged % 5 == 0 and dodged != 0:
-                    speed += 0.25
             else:
                 count += 1
 
