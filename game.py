@@ -2,58 +2,93 @@ import random
 import pygame
 import time
 import os
+import threading
+import platform
+import sys
 
-# centering the display
+# -------- BITALINO / EMG SETUP ----------
+osDic = {
+    "Darwin": f"MacOS/Intel{''.join(platform.python_version().split('.')[:2])}",
+    "Linux": "Linux64",
+    "Windows": f"Win{platform.architecture()[0][:2]}_{''.join(platform.python_version().split('.')[:2])}",
+}
+sys.path.append(f"PLUX-API-Python3/{osDic[platform.system()]}")
+import plux
+
+def detect_change(prev, curr, threshold=10):
+    return abs(curr - prev) > threshold
+
+shared_state = {
+    "gauche": False,
+    "droite": False
+}
+
+class NewDevice(plux.SignalsDev):
+    def __init__(self, address):
+        super().__init__()
+        self.address = address
+        self.duration = 0
+        self.frequency = 0
+        self.prev_value = None
+        self.prev_value2 = None
+
+    def onRawFrame(self, nSeq, data):
+        current_value = data[0]
+        current_value2 = data[1]
+
+        changement_detecte = False
+        changement_detecte2 = False
+
+        if self.prev_value is not None and self.prev_value2 is not None:
+            if detect_change(self.prev_value, current_value):
+                changement_detecte = True
+            if detect_change(self.prev_value2, current_value2):
+                changement_detecte2 = True
+
+        self.prev_value = current_value
+        self.prev_value2 = current_value2
+
+        shared_state["gauche"] = changement_detecte
+        shared_state["droite"] = changement_detecte2
+
+        return nSeq > self.duration * self.frequency
+
+def lancer_emg():
+    address = "98:D3:11:FE:03:67"  # Replace with your BITalino MAC address
+    device = NewDevice(address)
+    device.duration = 9999
+    device.frequency = 10
+    device.start(device.frequency, [1, 2], 16)
+    device.loop()
+    device.stop()
+    device.close()
+
+# -------- GAME SETUP ----------
 os.environ["SDL_VIDEO_CENTERED"] = "1"
-
-# initialising pygame
 pygame.init()
 pygame.font.init()
 
-# creating and setting the display surface
-SW = 800
-SH = 600
-
-pygame.display.set_caption('Dogers')
+SW, SH = 800, 600
 SS = pygame.display.set_mode((SW, SH))
+pygame.display.set_caption('Dogers')
 clock = pygame.time.Clock()
 FPS = 60
 
-
-# setting colours
-BLACK = (0,  0,  0)
+BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
-RED = (200,  0,  0)
-GREEN = (0, 200,  0)
-BLUE = (0,  0, 200)
+RED = (200, 0, 0)
+GREEN = (0, 200, 0)
 BRIGHT_RED = (255, 0, 0)
 BRIGHT_GREEN = (0, 255, 0)
-BRIGHT_BLUE = (0, 0, 255)
 
-# loading images
-car_img = pygame.image.load(os.path.join(
-    os.path.dirname(__file__), 'Sprites', "Car.png"))
-enemy_img = pygame.image.load(os.path.join(
-    os.path.dirname(__file__), 'Sprites', "Enemycar.png"))
-road_img = pygame.image.load(os.path.join(
-    os.path.dirname(__file__), 'Sprites', "Road.png"))
-car_icon = pygame.image.load(os.path.join(
-    os.path.dirname(__file__), 'Sprites', "Caricon.png"))
-tree_img = pygame.image.load(os.path.join(
-    os.path.dirname(__file__), 'Sprites', "Tree.png"))
-rainbow_img = pygame.image.load(os.path.join(
-    os.path.dirname(__file__), 'Sprites', "RainbowCar.png"))
-fast_img = pygame.image.load(os.path.join(
-    os.path.dirname(__file__), 'Sprites', "Fast.png"))
+car_img = pygame.image.load(os.path.join('Sprites', "Car.png"))
+enemy_img = pygame.image.load(os.path.join('Sprites', "Enemycar.png"))
+road_img = pygame.image.load(os.path.join('Sprites', "Road.png"))
 
-# array of x pos of each lane
 lanes = [248, 330, 420, 504]
-
-button_w = 100
-button_h = 50
+button_w, button_h = 100, 50
 
 class Enemy:
-
     def __init__(self, img, x, y, speed):
         self.img = img
         self.x = x
@@ -81,11 +116,9 @@ class Enemy:
         self.detect_crash(x, y)
         SS.blit(self.img, (self.x, self.y))
 
-
 def text_objects(text, font, colour):
     textSurface = font.render(text, True, colour)
     return textSurface, textSurface.get_rect()
-
 
 def message_display(text, x, y, textsize, colour):
     thetext = pygame.font.SysFont('courier.ttf', textsize)
@@ -93,12 +126,9 @@ def message_display(text, x, y, textsize, colour):
     TextRect.center = (x, y)
     SS.blit(TextSurf, TextRect)
 
-
 def button(msg, x, y, w, h, ic, ac, action=None):
-    mouse = pygame.mouse.get_pos()  # gets the mouse position
-    click = pygame.mouse.get_pressed()  # gets the mouse pressed status
-    # set up for boundaries, if mouse is within button boudaries
-    # then the button is overwritten with a lighter colour
+    mouse = pygame.mouse.get_pos()
+    click = pygame.mouse.get_pressed()
     if x + w > mouse[0] > x and y + h > mouse[1] > y:
         pygame.draw.rect(SS, ac, (x, y, w, h))
         if click[0] == 1 and action != None:
@@ -107,34 +137,30 @@ def button(msg, x, y, w, h, ic, ac, action=None):
         pygame.draw.rect(SS, ic, (x, y, w, h))
     message_display(msg, x + w / 2, y + h / 2, 20, WHITE)
 
-
 def game_quit():
     pygame.quit()
     quit()
 
-
 def generate_enemy(enemycars, speed):
-    temp_list = []  # create 1 wave of cars as a individual list
-    lanes_taken = []  # list for the lanes that have already been taken
-    enemy_amount = random.randrange(1, 4)  # generates a number of enemies
+    temp_list = []
+    lanes_taken = []
+    enemy_amount = random.randrange(1, 4)
     for i in range(enemy_amount):
         generated = False
         while not generated:
-            enemy_x = random.choice(lanes)  # picks a random lane
+            enemy_x = random.choice(lanes)
             if enemy_x not in lanes_taken:
-                temp_list.append(
-                    Enemy(enemy_img, enemy_x, 0 - enemy_img.get_height() * 2, speed))
+                temp_list.append(Enemy(enemy_img, enemy_x, 0 - enemy_img.get_height() * 2, speed))
                 lanes_taken.append(enemy_x)
-                generated = True  # if the lane hasn't been taken, a car is generated in that lane and the lane appended to the taken list
+                generated = True
     enemycars.append(temp_list)
-    return enemycars  # after generating the amount of cars, the updated list is returned
-
+    return enemycars
 
 def crash(dodged):
     message_display("You Crashed!", SW / 2, SH / 6, 80, WHITE)
     message_display("Your Score: " + str(dodged), SW / 2, SH / 4, 80, WHITE)
     freeze = True
-    while freeze:  # this loop will freeze the screen as it is
+    while freeze:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 freeze = False
@@ -153,17 +179,21 @@ def crash(dodged):
         pygame.display.update()
         clock.tick(FPS)
 
-
 def game_loop():
+    emg_lock = {
+        "gauche": False,
+        "droite": False
+    }
+
+    
     running = True
-    road_y = -369  # road image will start from -369 as that is the value to be looped
-    road_speed = 3  # will be added to the road's y value every frame
-    dodged = 0  # keep track how many waves the player has dodged
+    road_y = -369
+    road_speed = 3
+    dodged = 0
     speed = 6
     end = False
     enemycars = []
 
-    # let the car start from one of the middle 2 lanes
     car_x = random.choice([lanes[1], lanes[2]])
     car_y = (SH - car_img.get_height() - 40)
 
@@ -176,39 +206,41 @@ def game_loop():
                 pygame.quit()
                 quit()
 
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_q:
-                    running = False
-                    game_quit()
-                if event.key == pygame.K_LEFT:
-                    # loops through all the lanes and changes the x value accordingly
-                    for i in range(1, len(lanes)):
-                        if car_x == lanes[i]:
-                            car_x = lanes[i - 1]
-                            break
-                if event.key == pygame.K_RIGHT:
-                    for i in range(0, len(lanes) - 1):
-                        if car_x == lanes[i]:
-                            car_x = lanes[i + 1]
-                            break
+                # -------- EMG Movement (1 step per activation) --------
+        if shared_state["gauche"] and not emg_lock["gauche"]:
+            for i in range(1, len(lanes)):
+                if car_x == lanes[i]:
+                    car_x = lanes[i - 1]
+                    break
+            emg_lock["gauche"] = True
+        if not shared_state["gauche"]:
+            emg_lock["gauche"] = False
 
-        # displaying and moving road
+        if shared_state["droite"] and not emg_lock["droite"]:
+            for i in range(0, len(lanes) - 1):
+                if car_x == lanes[i]:
+                    car_x = lanes[i + 1]
+                    break
+            emg_lock["droite"] = True
+        if not shared_state["droite"]:
+            emg_lock["droite"] = False
+
+
+        # Display road
         SS.blit(road_img, (0, road_y))
         road_y += road_speed
         if road_y == 0:
             road_y = -369
 
-        # loop though the enemycars list and shows each object
+        # Show enemies
         count = 0
         while count < len(enemycars):
             for object in enemycars[count]:
                 object.show(car_x, car_y)
                 if object.crashed:
                     end = True
-            # if the wave has passed halfway and there is 1 or no waves, generate another wave
             if enemycars[count][0].halfway and len(enemycars) < 2:
                 generate_enemy(enemycars, speed)
-            # once the wave has gone off screen, delete the wave and generate another wave
             if enemycars[count][0].off_screen:
                 del enemycars[count]
                 generate_enemy(enemycars, speed)
@@ -223,11 +255,15 @@ def game_loop():
         SS.blit(car_img, (car_x, car_y))
 
         if end:
-            # make sure that all sprites are loaded before we run the crash function (otherwise sprites go missing)
             crash(dodged)
 
         pygame.display.update()
         clock.tick(FPS)
 
+# --------- MAIN START ---------
+if __name__ == "__main__":
+    emg_thread = threading.Thread(target=lancer_emg)
+    emg_thread.daemon = True
+    emg_thread.start()
 
-game_loop()
+    game_loop()
