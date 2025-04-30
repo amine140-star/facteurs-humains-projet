@@ -33,8 +33,8 @@ class NewDevice(plux.SignalsDev):
         self.prev_value2 = None
 
     def onRawFrame(self, nSeq, data):
-        current_value = data[0]
-        current_value2 = data[1]
+        current_value = data[0] # hetha el port A1 ta3 bitalino 7atet fih emg 
+        current_value2 = data[1] # hetha el port A2 ta3 bitalino 7atet fih pression ( emg le5or mawjoud ama 3ana sensors ta3 lmuscle ou l emg bidou le )
 
         changement_detecte = False
         changement_detecte2 = False
@@ -180,6 +180,7 @@ def crash(dodged):
         clock.tick(FPS)
 
 def game_loop():
+    # hethi bech tlock l mouvment men lane l lane b zarba 
     emg_lock = {
         "gauche": False,
         "droite": False
@@ -206,7 +207,7 @@ def game_loop():
                 pygame.quit()
                 quit()
 
-                # -------- EMG Movement (1 step per activation) --------
+# mouvment mta3 l emg lehne taya7na fil lanes bech ira pic fi signal mech mouvi direct lel e5er lane 
         if shared_state["gauche"] and not emg_lock["gauche"]:
             for i in range(1, len(lanes)):
                 if car_x == lanes[i]:
