@@ -1,0 +1,13 @@
+prefix=c:/Users/Sniki/Desktop/ENSIM/S8/Techo&Facteur_humains/Car-Game/.conda/Library
+exec_prefix=c:/Users/Sniki/Desktop/ENSIM/S8/Techo&Facteur_humains/Car-Game/.conda/Library
+libdir=c:/Users/Sniki/Desktop/ENSIM/S8/Techo&Facteur_humains/Car-Game/.conda/Library/lib
+sharedlibdir=c:/Users/Sniki/Desktop/ENSIM/S8/Techo&Facteur_humains/Car-Game/.conda/Library/lib
+includedir=c:/Users/Sniki/Desktop/ENSIM/S8/Techo&Facteur_humains/Car-Game/.conda/Library/include
+
+Name: zlib
+Description: zlib compression library
+Version: 1.2.13
+
+Requires:
+Libs: -L${libdir} -L${sharedlibdir} -lz
+Cflags: -I${includedir}

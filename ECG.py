@@ -6,7 +6,8 @@ import os
 
 # Seuils
 BPM_STRESS_THRESHOLD = 109
-ECG_PEAK_THRESHOLD = 589
+ECG_PEAK_THRESHOLD = 550
+
 
 shared_state = {
     "ecg": 0,

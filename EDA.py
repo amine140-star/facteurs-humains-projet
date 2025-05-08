@@ -4,9 +4,8 @@ import time
 import plux
 import os
 
-# ✅ Bloc configurable pour les seuils EDA
-EDA_STRESS_THRESHOLD = 513
-EDA_MEDIUM_THRESHOLD = 500
+EDA_STRESS_THRESHOLD = 220
+EDA_MEDIUM_THRESHOLD = 230
 
 shared_state = {"eda": 0, "stress_level": "Calme", "last_level": "Calme"}
 
