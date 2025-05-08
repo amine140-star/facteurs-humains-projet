@@ -44,7 +44,7 @@ class NewDevice(plux.SignalsDev):
 
 
 def exampleAcquisition(
-    address="BTH98:D3:11:FE:03:67",
+    address="BTH98:D3:11:FE:02:64",
     duration=20,
     frequency=100,
     active_ports=[1,2],

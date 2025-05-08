@@ -1,0 +1,26 @@
+import bitalino
+import time
+
+# Remplace l'adresse par celle affichée quand tu scans ton appareil
+macAddress = "98:D3:11:FE:02:64"
+
+# Connexion au BITalino
+device = bitalino.BITalino(macAddress)
+
+# Démarrer l'acquisition (100 Hz, canaux 0-5)
+device.start(100, [0, 1, 2, 3, 4, 5])
+
+print("Acquisition en cours... Appuie sur Ctrl+C pour arrêter.")
+
+try:
+    while True:
+        data = device.read(10)  # lit par blocs de 10 frames
+        for frame in data:
+            seq, *values = frame
+            print(f"Frame {seq}: {values}")
+except KeyboardInterrupt:
+    print("Arrêt demandé par l'utilisateur.")
+finally:
+    device.stop()
+    device.close()
+    print("Acquisition terminée.")

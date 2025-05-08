@@ -1,0 +1,12 @@
+import plux
+
+class NewDevice(plux.BaseDev):  # on évite SignalsDev qui pose problème
+    def onRawFrame(self, nSeq, data):
+        print("DATA:", data)
+
+address = "98:D3:11:FE:02:64"
+device = NewDevice(address)
+device.start(10, [1,2,3,4], 16)
+device.loop()
+device.stop()
+device.close()
